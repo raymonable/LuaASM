@@ -2,7 +2,7 @@ safecallset objects owner.Character.GetDescendants owner.Character;
 len objects_len objects;
 set index 0;
 @joint_loop;
-add index 1;
+opr index $add 1;
 chk a $egrt index objects_len;
 jmpif a animate;
 setfindex c objects index;
