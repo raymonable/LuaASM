@@ -1,6 +1,6 @@
-# TPScript
+# LuaASM
 
-A ~~really bad~~ work-in-progress scripting language that can access Lua globals.
+Fork of TPScript (primarily so I can bug TPose less to fix bugs, and just fix them myself)
 
 Example that runs inside of Roblox Luau:
 ```
@@ -36,6 +36,12 @@ log a;
 15
 ```
 
+More examples are available under the examples/ directory.
+
+A wiki will / should be accessable soon.
+
 ## Notes
 
-If your Lua enviroment does not have a split function, the interpreter will attempt to add one to the string library and will error if it fails.
+This was designed for Luau. There isn't planned support for any other environments.
+
+Use TPScript directly if you want support for regular Lua 5.1! :)
