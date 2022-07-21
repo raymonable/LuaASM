@@ -205,7 +205,7 @@ local LuaASM_Instructions = {
     ["cmt"] = {
         ins = function() end
     },
-    -- The following four instructions are considered deprecated. It's recommended you use `opp` in place of them. ex: `opp a $add 10;`
+    -- The following four instructions are considered deprecated. It's recommended you use `opp` in place of them. ex: `opr a $add 10;`
     ["add"] = {
         ins = function(Variable, Value)
             if not LuaASM_Environment[Variable] then
@@ -238,7 +238,7 @@ local LuaASM_Instructions = {
             LuaASM_Environment[Variable] = LuaASM_Environment[Variable] / tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
         end
     },
-    ["opp"] = {
+    ["opr"] = {
         ins = function(Variable, Type, Value)
             if not LuaASM_Environment[Variable] then
                 LuaASM_Environment[Variable] = 0
