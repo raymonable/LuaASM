@@ -2,7 +2,12 @@ local LuaASM;
 local LuaASM_Environment = getfenv(0);
 local LuaASM_Passthroughs = {};
 local LuaASM_Jumps = {};
+local LuaASM_Hooks = {};
+local LuaASM_Functions = {};
 local LuaASM_Index = 1;
+local LuaASM_Returns = {};
+local LuaASM_LatestArguments = {};
+local LuaASM_Hooks_Enabled = false; -- Luau was being funky, so I had to add this in.
 function LuaASM_Search(ASM)
     local Target = getfenv(0);
     local FunctionToken = ASM:split('.');
@@ -37,6 +42,15 @@ end;
 local LuaASM_Instructions = {
     ["call"] = {
         ins = function(Variable, ...)
+            for FunctionName, FunctionJumpTo in pairs(LuaASM_Functions) do
+                if Variable == FunctionName then
+                    local Old_Index = LuaASM_Index;
+                    LuaASM_Function_Arguments = table.pack(...);
+                    LuaASM_Function_Callback = LuaASM_Index;
+                    LuaASM_Index = FunctionJumpTo;
+                    return;
+                end
+            end
             local Arguments = table.pack(...)
             local _Arguments = {}
             for Index, Argument in pairs(Arguments) do
@@ -126,21 +140,27 @@ local LuaASM_Instructions = {
         end
     },
     ["log"] = {
-        ins = function(Var)
-            print(LuaASM_Search(Var) or Var)
+        ins = function(Value)
+            print(LuaASM_Search(Value) or Value)
         end,
     },
+    ["logtxt"] = {
+        ins = function(Value)
+            print(Value)
+        end,
+        concat = true
+    },
     ["logtbl"] = {
-        ins = function(Var)
-            for i, v in pairs(LuaASM_Environment[Var]) do
+        ins = function(Value)
+            for i, v in pairs(LuaASM_Environment[Value]) do
                 print(i, v)
             end
         end,
         concat = true
     },
     ["ls"] = {
-        ins = function(Var)
-            loadstring(Var)()
+        ins = function(Value)
+            loadstring(Value)()
         end,
         concat = true
     },
@@ -185,6 +205,7 @@ local LuaASM_Instructions = {
     ["cmt"] = {
         ins = function() end
     },
+    -- The following four instructions are considered deprecated. It's recommended you use `opp` in place of them. ex: `opp a $add 10;`
     ["add"] = {
         ins = function(Variable, Value)
             if not LuaASM_Environment[Variable] then
@@ -217,6 +238,57 @@ local LuaASM_Instructions = {
             LuaASM_Environment[Variable] = LuaASM_Environment[Variable] / tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
         end
     },
+    ["opp"] = {
+        ins = function(Variable, Type, Value)
+            if not LuaASM_Environment[Variable] then
+                LuaASM_Environment[Variable] = 0
+            end
+            if Type == '$add' then
+                LuaASM_Environment[Variable] = LuaASM_Environment[Variable] + tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+            elseif Type == '$sub' then
+                LuaASM_Environment[Variable] = LuaASM_Environment[Variable] - tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+            elseif Type == '$mul' then
+                LuaASM_Environment[Variable] = LuaASM_Environment[Variable] * tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+            elseif Type == '$div' then
+                LuaASM_Environment[Variable] = LuaASM_Environment[Variable] / tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+            end
+        end
+    },
+    ["hook"] = { -- This, currently, is a fairly hacky method of doing this. If there's a better solution that's been implemented, please inform me.
+        ins = function(ToHookTo, Path, AllowInterruptions)
+            if typeof(LuaASM_Search(ToHookTo)) == "RBXScriptSignal" then
+                LuaASM_Hooks_Enabled = true
+                LuaASM_Hooks[Path] = LuaASM_Search(ToHookTo):Connect(function(...)
+                    if LuaASM_Search(AllowInterruptions or '$false') == true or LuaASM_Index == 0 then
+                        LuaASM_LatestArguments = table.pack(...);
+                        LuaASM_Index = LuaASM_Jumps[Path];
+                    end
+                end)
+            end
+        end
+    },
+    ["setfhook"] = {
+        ins = function(...)
+            if LuaASM_LatestArguments then
+                local Arguments = table.pack(...)
+                for i = 1, #Arguments do
+                    LuaASM_Environment[Arguments[i]] = LuaASM_LatestArguments[i] 
+                end
+                LuaASM_LatestArguments = nil;
+            end
+        end
+    },
+    ["end"] = {
+        ins = function()
+            LuaASM_Index = math.huge;
+        end
+    },
+    ["ret"] = {
+        ins = function()
+            LuaASM_Index = LuaASM_Returns[#LuaASM_Returns];
+            LuaASM_Returns[#LuaASM_Returns] = nil;
+        end
+    },
     ["halt"] = {
         ins = function(Time)
             wait(tonumber(Time)/1000)
@@ -243,44 +315,64 @@ function LuaASM_RunInstruction(ASM_Row)
     end
 end;
 function LuaASM_CleanASM(ASM)
-    local ASM_Column = ASM:gsub("\n;", ";"):gsub("\n", ";"):split(";")--:gsub('\n', ''):split(';');
+    local ASM_Column = ASM:gsub("\n;", ";"):gsub("\n", ";"):split(";")
     for i = 1, #ASM_Column do
         ASM_Column[i] = ASM_Column[i]:gsub('^%s*', ''); -- Remove any additional tabs or spaces
     end;
     return ASM_Column;
 end;
-function LuaASM_RunInstructions(ASM)
+function LuaASM_RunInstructions(ASM, StartingIndex)
     LuaASM_Index = 1
     LuaASM_Jumps = {}
     for _Index, _ASM in pairs(ASM) do
         if _ASM:sub(1, 1) == "@" then
-            LuaASM_Jumps[_ASM:sub(2, -1)] =  _Index
+            LuaASM_Jumps[_ASM:sub(2, -1)] = _Index
         elseif _ASM:sub(1, 2) == "::" then
             LuaASM_Jumps[_ASM:sub(3, -1)] = _Index
         end
     end
-    LuaASM_Index = 1
-    while ASM[LuaASM_Index] do
-        local ASM_Row = ASM[LuaASM_Index]:split(' ');
-        if ASM_Row[1] == "jmp" then
-            if LuaASM_Jumps[ASM_Row[2]] then
-                LuaASM_Index = LuaASM_Jumps[ASM_Row[2]] - 1;
-            else
-                warn('Failed to jump, invalid jump address.');
+    LuaASM_Index = StartingIndex or 1
+    local LastRunning = true
+    while ASM[LuaASM_Index] or LuaASM_Hooks_Enabled do
+        if ASM[LuaASM_Index] then
+            if not LastRunning then 
+                LastRunning = true
             end
-        elseif ASM_Row[1] == "jmpif" then
-            if LuaASM_Environment[ASM_Row[2]] == true then
-                if LuaASM_Jumps[ASM_Row[3]] then
-                    LuaASM_Index = LuaASM_Jumps[ASM_Row[3]] - 1;
+            local ASM_Row = ASM[LuaASM_Index]:split(' ');
+            if ASM_Row[1] == "jmp" then
+                if LuaASM_Jumps[ASM_Row[2]] then
+                    LuaASM_Index = LuaASM_Jumps[ASM_Row[2]] - 1;
                 else
                     warn('Failed to jump, invalid jump address.');
                 end
+            elseif ASM_Row[1] == "jmpfnc" then
+                if LuaASM_Jumps[ASM_Row[2]] then
+                    LuaASM_Returns[#LuaASM_Returns + 1] = LuaASM_Index;
+                    LuaASM_Index = LuaASM_Jumps[ASM_Row[2]] - 1;
+                else
+                    warn('Failed to jump, invalid jump address.');
+                end
+            elseif ASM_Row[1] == "jmpif" then
+                if LuaASM_Environment[ASM_Row[2]] == true then
+                    if LuaASM_Jumps[ASM_Row[3]] then
+                        LuaASM_Index = LuaASM_Jumps[ASM_Row[3]] - 1;
+                    else
+                        warn('Failed to jump, invalid jump address.');
+                    end
+                end
+            else
+                LuaASM_RunInstruction(ASM_Row);
             end
+            LuaASM_Index = LuaASM_Index + 1;
         else
-            LuaASM_RunInstruction(ASM_Row);
+            wait()
+            if LastRunning then
+                LastRunning = false
+                LuaASM_Index = 0;
+            end
         end
-        LuaASM_Index = LuaASM_Index + 1;
     end
+    print('Script stopped.')
 end;
 LuaASM = {
     Interpret = function(ASM)
