@@ -1,0 +1,79 @@
+cmt btw this doesn't support too many instances;
+cmt just a few part types;
+
+callset a game.GetService game HttpService;
+callset b a.GetAsync a https://f3xteam.com/bt/export/3pg6;
+callset b a.JSONDecode a b;
+set b b.Items;
+len a b;
+set i 0;
+
+@build_loop;
+add i 1;
+chk z $egrt i a;
+setfindex x b i; cmt x is literally the object;
+jmpif z finished;
+jmp identify;
+
+@identify;
+setfindex _a x 1;
+chk n $equ _a 0;
+jmpif n part;
+chk n $equ _a 1;
+jmpif n wedge;
+chk n $equ _a 4;
+jmpif n seat;
+jmp build_loop; cmt i am not in the mood to support all types right now;
+
+@part;
+callset y Instance.new Part;
+jmp basepart;
+
+@wedge;
+callset y Instance.new WedgePart;
+jmp basepart;
+
+@seat;
+callset y Instance.new Seat;
+jmp basepart;
+
+@basepart;
+setindex y Parent script;
+setfindex _a x 4;
+setfindex _b x 5;
+setfindex _c x 6;
+callset d Vector3.new _a _b _c;
+setindex y Size d;
+setfindex _a x 7;
+setfindex _b x 8;
+setfindex _c x 9;
+setfindex _d x 10;
+setfindex _e x 11;
+setfindex _f x 12;
+setfindex _g x 13;
+setfindex _h x 14;
+setfindex _i x 15;
+setfindex _j x 16;
+setfindex _k x 17;
+setfindex _l x 18;
+callset d CFrame.new _a _b _c _d _e _f _g _h _i _j _k _l;
+setindex y CFrame d;
+setfindex _a x 19;
+setfindex _b x 20;
+setfindex _c x 21;
+callset d Color3.new _a _b _c;
+setindex y Color d;
+setfindex _a x 22;
+setindex y Material _a;
+setfindex _a x 24;
+chk _a $equ _a 1;
+setindex y CanCollide _a;
+setfindex _a x 23;
+chk _a $equ _a 1;
+setindex y Anchored _a;
+setfindex _a x 26;
+setindex y Transparency _a;
+jmp build_loop;
+
+@finished;
+log Finished.;
