@@ -38,7 +38,7 @@ log a;
 
 More examples are available under the examples/ directory.
 
-A wiki will / should be accessable soon.
+A fancy wiki with instructions on how to use this fork of a *definitely* fancy language is now available~!
 
 ## Notes
 
