@@ -372,7 +372,6 @@ function LuaASM_RunInstructions(ASM, StartingIndex)
             end
         end
     end
-    print('Script stopped.')
 end;
 LuaASM = {
     Interpret = function(ASM)
