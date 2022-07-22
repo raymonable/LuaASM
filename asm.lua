@@ -9,48 +9,46 @@ local LuaASM_Returns = {};
 local LuaASM_LatestArguments = {};
 local LuaASM_Hooks_Enabled = false; -- Luau was being funky, so I had to add this in.
 function LuaASM_Search(ASM)
-    local Target = getfenv(0);
-    local FunctionToken = ASM:split('.');
-    for _, Token in pairs(FunctionToken) do
-        if Target[Token:gsub('$s', ' ')] then
-            Target = Target[Token:gsub('$s', ' ')]
+    local Token = ASM:split('.')
+    local Target = getfenv(0)
+    local Failed = false
+    for _, _Token in pairs(Token) do
+        local TokenNumber = tonumber(_Token)
+        if Target[_Token] then
+            Target = Target[_Token]
+        else
+            Failed = true
+            break
         end
     end
-    if Target == getfenv(0) then
+    if Failed then
+        Failed = false
         Target = LuaASM_Environment
-        for _, Token in pairs(FunctionToken) do
-            if Target[Token:gsub('$s', ' ')] then
-                Target = Target[Token:gsub('$s', ' ')]
+        for _, _Token in pairs(Token) do
+            local TokenNumber = tonumber(_Token)
+            if Target[_Token] then
+                Target = Target[_Token]
+            else
+                Failed = true
+                break
             end
         end
-        if Target == getfenv(0) then
-            return nil
+        if Failed then
+            Target = nil
         end
     end
-    if ASM:sub(1, 1) == "$" and not Target then
+    if ASM:sub(1, 1) == '$' and not Target then
         if ASM:sub(2, #ASM) == "true" or ASM:sub(2, #ASM) == "false" then
-            return (ASM:sub(2, #ASM) == "true") 
-        end
-    else
-        if Target ~= getfenv(0) then
-            return Target or LuaASM_Environment[ASM]
+            return ASM:sub(2, #ASM) == "true"
         else
             return nil
         end
     end
+    return Target or LuaASM_Environment[ASM]
 end;
 local LuaASM_Instructions = {
     ["call"] = {
         ins = function(Variable, ...)
-            for FunctionName, FunctionJumpTo in pairs(LuaASM_Functions) do
-                if Variable == FunctionName then
-                    local Old_Index = LuaASM_Index;
-                    LuaASM_Function_Arguments = table.pack(...);
-                    LuaASM_Function_Callback = LuaASM_Index;
-                    LuaASM_Index = FunctionJumpTo;
-                    return;
-                end
-            end
             local Arguments = table.pack(...)
             local _Arguments = {}
             for Index, Argument in pairs(Arguments) do
@@ -141,7 +139,7 @@ local LuaASM_Instructions = {
     },
     ["log"] = {
         ins = function(Value)
-            print(LuaASM_Search(Value) or Value)
+            print(LuaASM_Search(Value))
         end,
     },
     ["logtxt"] = {
@@ -183,21 +181,23 @@ local LuaASM_Instructions = {
     },
     ["chk"] = {
         ins = function(ToWriteTo, Type, Variable, Value)
-            if tonumber(LuaASM_Search(Variable)) and tonumber(LuaASM_Search(Value) or Value) then
-                if Type == '$equ' then
-                    LuaASM_Environment[ToWriteTo] = tonumber(LuaASM_Search(Variable)) == tonumber(LuaASM_Search(Value) or Value)
-                elseif Type == '$grt' then
-                    LuaASM_Environment[ToWriteTo] = tonumber(LuaASM_Search(Variable)) > tonumber(LuaASM_Search(Value) or Value)
-                elseif Type == '$lss' then
-                    LuaASM_Environment[ToWriteTo] = tonumber(LuaASM_Search(Variable)) < tonumber(LuaASM_Search(Value) or Value)
-                elseif Type == '$egrt' then
-                    LuaASM_Environment[ToWriteTo] = tonumber(LuaASM_Search(Variable)) >= tonumber(LuaASM_Search(Value) or Value)
-                elseif Type == '$elss' then
-                    LuaASM_Environment[ToWriteTo] = tonumber(LuaASM_Search(Variable)) <= tonumber(LuaASM_Search(Value) or Value)
-                end
-            elseif typeof(LuaASM_Search(Variable)) == "string" then
-                if Type == '$equ' then
-                    LuaASM_Environment[ToWriteTo] = LuaASM_Search(Variable) == Value
+            if LuaASM_Search(Variable) then
+                if (tonumber(LuaASM_Search(Variable))) or typeof(LuaASM_Search(Variable)) == "CFrame" or typeof(LuaASM_Search(Variable)) == "Vector3" then
+                    if Type == '$equ' then
+                        LuaASM_Environment[ToWriteTo] = (tonumber(LuaASM_Search(Variable)) or LuaASM_Search(Variable)) == (tonumber(LuaASM_Search(Value) or Value) or LuaASM_Search(Value))
+                    elseif Type == '$grt' then
+                        LuaASM_Environment[ToWriteTo] = (tonumber(LuaASM_Search(Variable)) or LuaASM_Search(Variable)) > (tonumber(LuaASM_Search(Value) or Value) or LuaASM_Search(Value))
+                    elseif Type == '$lss' then
+                        LuaASM_Environment[ToWriteTo] = (tonumber(LuaASM_Search(Variable)) or LuaASM_Search(Variable)) < (tonumber(LuaASM_Search(Value) or Value) or LuaASM_Search(Value))
+                    elseif Type == '$egrt' then
+                        LuaASM_Environment[ToWriteTo] = (tonumber(LuaASM_Search(Variable)) or LuaASM_Search(Variable)) >= (tonumber(LuaASM_Search(Value) or Value) or LuaASM_Search(Value))
+                    elseif Type == '$elss' then
+                        LuaASM_Environment[ToWriteTo] = (tonumber(LuaASM_Search(Variable)) or LuaASM_Search(Variable)) <= (tonumber(LuaASM_Search(Value) or Value) or LuaASM_Search(Value))
+                    end
+                elseif typeof(LuaASM_Search(Variable)) == "string" then
+                    if Type == '$equ' then
+                        LuaASM_Environment[ToWriteTo] = LuaASM_Search(Variable) == Value
+                    end
                 end
             end
         end
@@ -335,6 +335,7 @@ function LuaASM_RunInstructions(ASM, StartingIndex)
     local LastRunning = true
     while ASM[LuaASM_Index] or LuaASM_Hooks_Enabled do
         if ASM[LuaASM_Index] then
+            if LuaASM_Environment['debug'] then print(ASM[LuaASM_Index]) end
             if not LastRunning then 
                 LastRunning = true
             end
@@ -375,10 +376,11 @@ function LuaASM_RunInstructions(ASM, StartingIndex)
 end;
 LuaASM = {
     Interpret = function(ASM)
-        return function(Passthroughs)
+        return function(Passthroughs,  Debugging)
             LuaASM_Passthroughs = Passthroughs or {};
 
             LuaASM_Environment = getfenv(0);
+            LuaASM_Environment['debug'] = Debugging or false;
             for Key, Value in pairs(LuaASM_Passthroughs) do
                 LuaASM_Environment[Key] = Value;
             end
