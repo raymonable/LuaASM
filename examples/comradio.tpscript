@@ -1,0 +1,65 @@
+callset HttpService game.GetService game HttpService;
+callset MessagingService game.GetService game MessagingService;
+
+setfindex author owner UserId;
+setstr topic comradio:;
+setstr colon :;
+setstr welcome Welcome,;
+
+setstr type_1 text;
+setstr type_2 welcome;
+
+:-send-message type text;
+callset a table.create 0;
+setindex a Type type;
+setindex a Content text;
+setindex a Author author;
+callset b HttpService.JSONEncode HttpService a;
+call MessagingService.PublishAsync MessagingService topic b;
+ret;
+
+:-on-message data;
+callset _a HttpService.JSONDecode HttpService data.Data;
+setfindex _Author _a Author;
+setfindex _Message _a Content;
+callset _Author tonumber _Author;
+callset _Author game.Players.GetNameFromUserIdAsync game.Players _Author;
+callset _b table.create 0;
+setfindex _e _a Type;
+chk _j $equ _e type_1;
+jmpif _j text;
+chk _j $equ _e type_2;
+jmpif _j welcome;
+jmp unsupported;
+@text;
+call table.insert _b _Author;
+call table.insert _b _Message;
+callset _b table.concat _b colon;
+jmp output;
+@welcome;
+call table.insert _b welcome;
+call table.insert _b _Author;
+callset _b table.concat _b;
+jmp output;
+@unsupported; 
+call table.insert _b _Author;
+call table.insert _b unsupported;
+callset _b table.concat _b colon;
+jmp output
+@output;
+log _b;
+ret;
+
+:-on-owner-msg-sent _Msg;
+setstr type text;
+call send-message type _Msg; 
+ret;
+
+callset hook MessagingService.SubscribeAsync MessagingService topic on-message;
+call owner.Chatted.Connect owner.Chatted on-owner-msg-sent;
+
+logtxt Use in-game chat to use comradio! :);
+
+setstr type welcome;
+setstr text test;
+call send-message type text;
