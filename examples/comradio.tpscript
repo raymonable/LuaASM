@@ -5,6 +5,7 @@ setfindex author owner UserId;
 setstr topic comradio:;
 setstr colon :;
 setstr welcome Welcome,;
+setstr unsupported Unsupported message type!!!!;
 
 setstr type_1 text;
 setstr type_2 welcome;
