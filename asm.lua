@@ -160,6 +160,15 @@ local LuaASM_Instructions = {
             end
         end
     },
+    ["setstr"] = {
+        ins = function(Variable, ...)
+            if LuaASM_Functions[Variable] then
+                warn('You cannot overwrite functions.') 
+            else
+                LuaASM_Environment[Variable] = tostring(table.concat(table.pack(...), ' '))
+            end
+        end
+    },
     ["log"] = {
         ins = function(Value)
             print(LuaASM_Search(Value))
@@ -219,7 +228,7 @@ local LuaASM_Instructions = {
                     end
                 elseif typeof(LuaASM_Search(Variable)) == "string" then
                     if Type == '$equ' then
-                        LuaASM_Environment[ToWriteTo] = LuaASM_Search(Variable) == Value
+                        LuaASM_Environment[ToWriteTo] = LuaASM_Search(Variable) == LuaASM_Search(Value) or Value
                     end
                 end
             end
@@ -340,6 +349,7 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
     local _LuaASM_Index = 0
     local ArchivedVariables = {};
     local SetInEnvironment = SIE or {}
+    local Old_LuaASM_Jumps =  LuaASM_Jumps
     if not StandaloneFunction then
         LuaASM_Index = 1
         LuaASM_Jumps = {}
@@ -389,6 +399,14 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
             ArchivedVariables[LuaASM_Functions[StandaloneFunction].Arguments[i]] = LuaASM_Environment[LuaASM_Functions[StandaloneFunction].Arguments[i]]
             LuaASM_Environment[LuaASM_Functions[StandaloneFunction].Arguments[i]] = SetInEnvironment[i]
         end
+        LuaASM_Jumps = {}
+        for _Index, _ASM in pairs(ASM) do
+            if _ASM:sub(1, 1) == "@" then
+                LuaASM_Jumps[_ASM:sub(2, -1)] = _Index
+            elseif _ASM:sub(1, 2) == "::" then
+                LuaASM_Jumps[_ASM:sub(3, -1)] = _Index
+            end
+        end
     end
     
     local LastRunning = true
@@ -407,7 +425,7 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
                 end
             elseif ASM_Row[1] == "jmpif" then
                 if LuaASM_Environment[ASM_Row[2]] == true then
-                    if _LuaASM_Index[ASM_Row[3]] then
+                    if LuaASM_Jumps[ASM_Row[3]] then
                         _LuaASM_Index = LuaASM_Jumps[ASM_Row[3]] - 1;
                     else
                         warn('Failed to jump, invalid jump address.');
@@ -446,9 +464,10 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
     end
     -- Ended.
     if StandaloneFunction then
+        LuaASM_Jumps = Old_LuaASM_Jumps
         local _LuaASM_LatestVFArguments = LuaASM_LatestVFArguments
         LuaASM_LatestVFArguments = nil
-        return table.unpack(_LuaASM_LatestVFArguments)
+        return table.unpack(_LuaASM_LatestVFArguments or {})
     end
 end;
 LuaASM = {
