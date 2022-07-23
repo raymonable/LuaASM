@@ -363,7 +363,6 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
                     local InstructionsCount = {}
                     for __Index = _Index+1, EndLine do
                         table.insert(Instructions, ASM[__Index])
-                        warn(ASM[__Index])
                         table.insert(InstructionsCount, __Index)
                     end
                     local Arguments = _ASM:sub(3, -1):split(' ')
