@@ -1,3 +1,11 @@
+--[[
+
+LuaASM V1
+    Based off TPScript by tpose (@headsmasher8557 / @TPoseTShirtTSeries), forked by raymond (@raymonable)
+    Please report any major bugs directly to me (since forks don't have an Issues tab.) raymon#5427 (also, don't report TPScript issues to me.)
+
+--]]
+
 local LuaASM;
 local LuaASM_Environment = getfenv(0);
 local LuaASM_Passthroughs = {};
@@ -11,6 +19,7 @@ local LuaASM_Hooks_Enabled = false; -- Luau was being funky, so I had to add thi
 local LuaASM_Functions = {};
 local LuaASM_LatestVFArguments;
 function LuaASM_Search(ASM)
+    if typeof(ASM) ~= "string" then return ASM end
     local Token = ASM:split('.')
     local Target = getfenv(0)
     local Failed = false
@@ -79,7 +88,7 @@ local LuaASM_Instructions = {
     },
     ["callset"] = {
         ins = function(ToWriteTo, Variable, ...)
-            if LuaASM_Functions[Variable] then
+            if LuaASM_Functions[ToWriteTo] then
                 warn('You cannot overwrite functions.') 
             else
                 local Arguments = table.pack(...)
@@ -96,7 +105,7 @@ local LuaASM_Instructions = {
     },
     ["safecallset"] = {
         ins = function(ToWriteTo, Variable, ...)
-            if LuaASM_Functions[Variable] then
+            if LuaASM_Functions[ToWriteTo] then
                 warn('You cannot overwrite functions.') 
             else
                 local Arguments = table.pack(...)
@@ -273,10 +282,7 @@ local LuaASM_Instructions = {
             if typeof(LuaASM_Search(ToHookTo)) == "RBXScriptSignal" then
                 LuaASM_Hooks_Enabled = true
                 LuaASM_Hooks[Path] = LuaASM_Search(ToHookTo):Connect(function(...)
-                    if LuaASM_Search(AllowInterruptions or '$false') == true or LuaASM_Index == 0 then
-                        LuaASM_LatestArguments = table.pack(...);
-                        LuaASM_Environment[Path](LuaASM_LatestArguments);
-                    end
+                    LuaASM_Environment[Path](...);
                 end)
             end
         end
@@ -292,21 +298,15 @@ local LuaASM_Instructions = {
             end
         end
     },
-    ["setfvfunc"] = {
-        ins = function(...)
-            if LuaASM_LatestVFArguments then
-                local Arguments = table.pack(...)
-                for i = 1, #Arguments do
-                    LuaASM_Environment[Arguments[i]] = LuaASM_Search(LuaASM_LatestVFArguments[i]) or LuaASM_LatestVFArguments[i]
-                end
-                LuaASM_LatestVFArguments = nil;
-            end
-        end 
-    },
     ["ret"] = {
         ins = function(...)
             if ... then
-                LuaASM_LatestVFArguments = table.pack(...)
+                local Arguments = table.pack(...)
+                local j = {}
+                for i = 1, #Arguments do
+                    table.insert(j, LuaASM_Search(Arguments[i]) or Arguments[i])
+                end
+                LuaASM_LatestVFArguments = j
             end
         end
     },
@@ -347,8 +347,10 @@ function LuaASM_CleanASM(ASM)
     end;
     return ASM_Column;
 end;
-function LuaASM_RunInstructions(ASM, StandaloneFunction)
+function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
     local _LuaASM_Index = 0
+    local ArchivedVariables = {};
+    local SetInEnvironment = SIE or {}
     if not StandaloneFunction then
         LuaASM_Index = 1
         LuaASM_Jumps = {}
@@ -370,20 +372,22 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction)
                 else
                     local Instructions = {}
                     local InstructionsCount = {}
-                    for __Index = _Index+1, EndLine+1 do
+                    for __Index = _Index+1, EndLine do
                         table.insert(Instructions, ASM[__Index])
+                        warn(ASM[__Index])
                         table.insert(InstructionsCount, __Index)
                     end
-                    LuaASM_Functions[_ASM:sub(3, -1)] = {
+                    local Arguments = _ASM:sub(3, -1):split(' ')
+                    table.remove(Arguments, 1);
+                    LuaASM_Functions[_ASM:sub(3, -1):split(' ')[1]] = {
                         Start = _Index,
                         End = EndLine,
                         InstructionCount = InstructionsCount,
-                        Instructions = table.concat(Instructions, "\n")
+                        Instructions = table.concat(Instructions, "\n"),
+                        Arguments = Arguments
                     }
-                    LuaASM_Environment[_ASM:sub(3, -1)] = function(ShouldHalt)
-                        if ShouldHalt then
-                            LuaASM_RunInstructions(Instructions, true)
-                        end
+                    LuaASM_Environment[_ASM:sub(3, -1):split(' ')[1]] = function(...)
+                        return LuaASM_RunInstructions(Instructions, _ASM:sub(3, -1):split(' ')[1], table.pack(...) or {})
                     end
                 end
             end
@@ -393,7 +397,12 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction)
         end
     else
         _LuaASM_Index = 1
+        for i = 1, #SetInEnvironment do
+            ArchivedVariables[LuaASM_Functions[StandaloneFunction].Arguments[i]] = LuaASM_Environment[LuaASM_Functions[StandaloneFunction].Arguments[i]]
+            LuaASM_Environment[LuaASM_Functions[StandaloneFunction].Arguments[i]] = SetInEnvironment[i]
+        end
     end
+    
     local LastRunning = true
     while ASM[_LuaASM_Index] or (LuaASM_Hooks_Enabled and not StandaloneFunction) do
         if ASM[_LuaASM_Index] then
@@ -443,7 +452,16 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction)
             _LuaASM_Index = _LuaASM_Index + 1
         end
     end
+    for i = 1, #SetInEnvironment do
+        -- Restore env
+        LuaASM_Environment[LuaASM_Functions[StandaloneFunction].Arguments[i]] = ArchivedVariables[LuaASM_Functions[StandaloneFunction].Arguments[i]]
+    end
     -- Ended.
+    if StandaloneFunction then
+        local _LuaASM_LatestVFArguments = LuaASM_LatestVFArguments
+        LuaASM_LatestVFArguments = nil
+        return table.unpack(_LuaASM_LatestVFArguments)
+    end
 end;
 LuaASM = {
     Interpret = function(ASM)
