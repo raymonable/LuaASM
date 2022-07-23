@@ -287,17 +287,6 @@ local LuaASM_Instructions = {
             end
         end
     },
-    ["setfhook"] = {
-        ins = function(...)
-            if LuaASM_LatestArguments then
-                local Arguments = table.pack(...)
-                for i = 1, #Arguments do
-                    LuaASM_Environment[Arguments[i]] = LuaASM_LatestArguments[i] 
-                end
-                LuaASM_LatestArguments = nil;
-            end
-        end
-    },
     ["ret"] = {
         ins = function(...)
             if ... then
