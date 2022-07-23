@@ -76,4 +76,4 @@ setindex y Transparency _a;
 jmp build_loop;
 
 @finished;
-log Finished.;
+logtxt Finished.;
