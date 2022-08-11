@@ -237,39 +237,6 @@ local LuaASM_Instructions = {
     ["cmt"] = {
         ins = function() end
     },
-    -- The following four instructions are considered deprecated. It's recommended you use `opr` in place of them. ex: `opr a $add 10;`
-    ["add"] = {
-        ins = function(Variable, Value)
-            if not LuaASM_Environment[Variable] then
-                LuaASM_Environment[Variable] = 0
-            end
-            LuaASM_Environment[Variable] = LuaASM_Environment[Variable] + tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
-        end
-    },
-    ["sub"] = {
-        ins = function(Variable, Value)
-            if not LuaASM_Environment[Variable] then
-                LuaASM_Environment[Variable] = 0
-            end
-            LuaASM_Environment[Variable] = LuaASM_Environment[Variable] - tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
-        end
-    },
-    ["mul"] = {
-        ins = function(Variable, Value)
-            if not LuaASM_Environment[Variable] then
-                LuaASM_Environment[Variable] = 0
-            end
-            LuaASM_Environment[Variable] = LuaASM_Environment[Variable] * tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
-        end
-    },
-    ["div"] = {
-        ins = function(Variable, Value)
-            if not LuaASM_Environment[Variable] then
-                LuaASM_Environment[Variable] = 0
-            end
-            LuaASM_Environment[Variable] = LuaASM_Environment[Variable] / tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
-        end
-    },
     ["opr"] = {
         ins = function(Variable, Type, Value)
             if not LuaASM_Environment[Variable] then
@@ -324,6 +291,8 @@ local LuaASM_Instructions = {
         end
     },
 };
+local LuaASM_DiscontinuedInstructions = {"add", "sub", "mul", "div"}
+for _, Instruction in pairs(LuaASM_DiscontinuedInstructions) do local I = Instruction; LuaASM_Instructions[Instruction] = {ins = function() return warn('Instruction "'..I..'" is discontinued. Please check the LuaASM Wiki for supplements.') end} end
 function LuaASM_RunInstruction(ASM_Row)
     local ASM_Arguments = {};
     for Index = 2, #ASM_Row do
