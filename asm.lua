@@ -17,6 +17,7 @@ local LuaASM_Returns = {};
 local LuaASM_LatestArguments;
 local LuaASM_Hooks_Enabled = false; -- Luau was being funky, so I had to add this in.
 local LuaASM_Functions = {};
+local LuaASM_Repeats = {};
 local LuaASM_LatestVFArguments;
 function LuaASM_Search(ASM)
     if typeof(ASM) ~= "string" then return ASM end
@@ -69,6 +70,21 @@ local LuaASM_Instructions = {
                 end
             end
             LuaASM_Search(Variable)(table.unpack(_Arguments))
+        end
+    },
+    ["callif"] = {
+        ins = function(Variable, CallIf, ...)
+            if LuaASM_Environment[CallIf] then
+                local Arguments = table.pack(...)
+                local _Arguments = {}
+                for Index, Argument in pairs(Arguments) do
+                    if Index == "n" then
+                    else
+                        _Arguments[#_Arguments + 1] = tonumber(LuaASM_Search(Argument)) or LuaASM_Search(Argument)
+                    end
+                end
+                LuaASM_Search(Variable)(table.unpack(_Arguments))
+            end
         end
     },
     ["safecall"] = {
@@ -194,6 +210,19 @@ local LuaASM_Instructions = {
         end,
         concat = true
     },
+    ["settbl"] = {
+        ins = function(Variable, ...)
+            local Arguments = table.pack(...)
+            LuaASM_Environment[Variable] = {}
+            for i = 1, #Arguments do
+                local Value = Arguments[i]
+                table.insert(
+                    LuaASM_Environment[Variable], 
+                    tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+                )
+            end
+        end
+    },
     ["opp"] = {
         ins = function(Variable)
             LuaASM_Environment[Variable] = not LuaASM_Search(Variable)
@@ -253,7 +282,7 @@ local LuaASM_Instructions = {
             end
         end
     },
-    ["hook"] = { -- This, currently, is a fairly hacky method of doing this. If there's a better solution that's been implemented, please inform me.
+    ["hook"] = {
         ins = function(ToHookTo, Path, AllowInterruptions)
             if typeof(LuaASM_Search(ToHookTo)) == "RBXScriptSignal" then
                 LuaASM_Hooks_Enabled = true
@@ -272,6 +301,25 @@ local LuaASM_Instructions = {
                     table.insert(j, LuaASM_Search(Arguments[i]) or Arguments[i])
                 end
                 LuaASM_LatestVFArguments = j
+            end
+        end
+    },
+    ["rpt"] = {
+        ins = function(ToCheck)
+            table.insert(LuaASM_Repeats, {
+                ToCheck = function() 
+                    return LuaASM_Environment[ToCheck] 
+                end,
+                ToMoveTo = LuaASM_Index
+            })
+        end
+    },
+    ["loop"] = {
+        ins = function()
+            for _, Loop in pairs(LuaASM_Repeats) do
+                if Loop.ToCheck() then
+                    LuaASM_Index = Loop.ToMoveTo
+                end
             end
         end
     },
@@ -323,6 +371,7 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
         LuaASM_Index = 1
         LuaASM_Jumps = {}
         for _Index, _ASM in pairs(ASM) do
+            -- JMP instructions should be deprecated.
             if _ASM:sub(1, 1) == "@" then
                 LuaASM_Jumps[_ASM:sub(2, -1)] = _Index
             elseif _ASM:sub(1, 2) == "::" then
@@ -386,6 +435,7 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
                 LastRunning = true
             end
             local ASM_Row = ASM[_LuaASM_Index]:split(' ');
+            -- JMP instructions should be deprecated.
             if ASM_Row[1] == "jmp" then
                 if LuaASM_Jumps[ASM_Row[2]] then
                     _LuaASM_Index = LuaASM_Jumps[ASM_Row[2]] - 1;
