@@ -507,13 +507,40 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
 end;
 LuaASM = {
     Interpret = function(ASM)
-        return function(Passthroughs,  Debugging)
-            LuaASM_Passthroughs = Passthroughs or {};
+        return function(Plugins, Debugging)
+            LuaASM_Plugins = Plugins or {};
 
             LuaASM_Environment = getfenv(0);
             LuaASM_Environment['debug'] = Debugging or false;
-            for Key, Value in pairs(LuaASM_Passthroughs) do
-                LuaASM_Environment[Key] = Value;
+            for Key, Value in pairs(LuaASM_Plugins) do
+                local Success, UnloadedPlugin = pcall(function()
+                    return game:GetService('HttpService'):GetAsync(Value)
+                end)
+                if Success then
+                    local Success, LoadedPlugin = pcall(function()
+                        return loadstring(UnloadedPlugin)()
+                    end
+                    if Success then
+                        for Instruction, ToRun in pairs(LoadedPlugin) do
+                            if typeof(ToRun) == "table" then
+                                LuaASM_Instructions[Instruction] = ToRun
+                            else
+                                LuaASM_Instructions[Instruction] = {
+                                    ins = ToRun
+                                    cmp = function()
+                                        return "warn('Instruction "..Instruction.." cannot compile.\nThe plugin author must fix this issue themselves.')"
+                                    end
+                                }
+                            end
+                        end
+                    else
+                        warn(Key .. ' failed to load!')
+                        return
+                    end
+                else
+                    warn(Key .. ' failed to fetch!')
+                    return
+                end
             end
 
             local Instructions = LuaASM_CleanASM(ASM);
