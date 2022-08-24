@@ -10,7 +10,7 @@ local Module = 'luaasm'
 local Modules = {
   ['luaasm'] = {
     url = 'https://raw.githubusercontent.com/raymonable/LuaAsm/main/asm.lua',
-    init = function(Loader, Script) Loader.Interpret(Script)({}) end
+    init = function(Loader, Script, Plugins) Loader.Interpret(Script)(Plugins or {}) end
   },
   ['tpscript'] = {
     url = 'https://raw.githubusercontent.com/headsmasher8557/tpscript/main/init.lua',  
@@ -25,7 +25,10 @@ if Modules[Module] then
     return loadstring(game:GetService('HttpService'):GetAsync(Modules[Module].url))()
   end)
   if Success then 
-    Modules[Module].init(Loader, Script)
+    Modules[Module].init(Loader, Script, {
+      -- Put any LuaASM plugins in here.
+      --["Full Compatibility"] = "https://raw.githubusercontent.com/raymonable/LuaASM/main/plugins/full_compatiblity.plugin.lua"
+    })
   else
     warn('Failed to start interpreter. Please try again!')
   end
