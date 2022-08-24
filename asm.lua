@@ -18,6 +18,7 @@ local LuaASM_LatestArguments;
 local LuaASM_Hooks_Enabled = false;
 local LuaASM_Functions = {};
 local LuaASM_Repeats = {};
+local LuaASM_Wrappers = {};
 local LuaASM_LatestVFArguments;
 function LuaASM_Search(ASM)
     if typeof(ASM) ~= "string" then return ASM end
@@ -355,20 +356,22 @@ local LuaASM_Instructions = {
         end
     },
 };
-local LuaASM_DiscontinuedInstructions = {"add", "sub", "mul", "div"}
-for _, Instruction in pairs(LuaASM_DiscontinuedInstructions) do local I = Instruction; LuaASM_Instructions[Instruction] = {ins = function() return warn('Instruction "'..I..'" is discontinued. Please check the LuaASM Wiki for supplements.') end} end
 function LuaASM_RunInstruction(ASM_Row)
     local ASM_Arguments = {};
     for Index = 2, #ASM_Row do
         ASM_Arguments[Index - 1] = ASM_Row[Index]
     end
     local ASM_Instruction = LuaASM_Instructions[ASM_Row[1]]
+    local Wrapper_Instruction = LuaASM_Wrappers[ASM_Row[1]]
     if ASM_Instruction then
         if ASM_Instruction['concat'] then
             ASM_Instruction['ins'](table.concat(ASM_Arguments, " "));
         else
             ASM_Instruction['ins'](table.unpack(ASM_Arguments));
         end;
+    elseif Wrapper_Instruction then
+        local WrappedInstruction = Wrapper_Instruction(ASM_Arguments)
+        LuaASM_RunInstruction(WrappedInstruction)
     end
 end;
 function LuaASM_CleanASM(ASM)
@@ -387,7 +390,6 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
         LuaASM_Index = 1
         LuaASM_Jumps = {}
         for _Index, _ASM in pairs(ASM) do
-            -- JMP instructions should be deprecated.
             if _ASM:sub(1, 1) == "@" then
                 LuaASM_Jumps[_ASM:sub(2, -1)] = _Index
             elseif _ASM:sub(1, 2) == "::" then
@@ -451,7 +453,6 @@ function LuaASM_RunInstructions(ASM, StandaloneFunction, SIE)
                 LastRunning = true
             end
             local ASM_Row = ASM[_LuaASM_Index]:split(' ');
-            -- JMP instructions should be deprecated.
             if ASM_Row[1] == "jmp" then
                 if LuaASM_Jumps[ASM_Row[2]] then
                     _LuaASM_Index = LuaASM_Jumps[ASM_Row[2]] - 1;
@@ -521,16 +522,22 @@ LuaASM = {
                         return loadstring(UnloadedPlugin)()
                     end
                     if Success then
-                        for Instruction, ToRun in pairs(LoadedPlugin) do
-                            if typeof(ToRun) == "table" then
-                                LuaASM_Instructions[Instruction] = ToRun
-                            else
-                                LuaASM_Instructions[Instruction] = {
-                                    ins = ToRun
-                                    cmp = function()
-                                        return "warn('Instruction "..Instruction.." cannot compile.\nThe plugin author must fix this issue themselves.')"
-                                    end
-                                }
+                        if LoadedPlugin.Wrappers then
+                            for TheWrapper, Wrapper in pairs(LoadedPlugin.Wrappers) do
+                                LuaASM_Wrappers[TheWrapper] = Wrapper
+                            end
+                        elseif LoadedPlugin.Instructions then
+                            for Instruction, ToRun in pairs(LoadedPlugin.Instructions) do
+                                if typeof(ToRun) == "table" then
+                                    LuaASM_Instructions[Instruction] = ToRun
+                                else
+                                    LuaASM_Instructions[Instruction] = {
+                                        ins = ToRun
+                                        cmp = function()
+                                            return "warn('Instruction "..Instruction.." cannot compile.\nThe plugin author must fix this issue themselves.')"
+                                        end
+                                    }
+                                end
                             end
                         end
                     else
