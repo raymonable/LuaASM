@@ -317,8 +317,9 @@ local LuaASM_Instructions = {
     ["loop"] = {
         ins = function()
             for _, Loop in pairs(LuaASM_Repeats) do
-                if Loop.ToCheck() then
+                if Loop.ToCheck() and Loop.ToMoveTo < LuaASM_Index then
                     LuaASM_Index = Loop.ToMoveTo
+                    break
                 end
             end
         end
