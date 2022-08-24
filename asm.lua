@@ -15,7 +15,7 @@ local LuaASM_Functions = {};
 local LuaASM_Index = 1;
 local LuaASM_Returns = {};
 local LuaASM_LatestArguments;
-local LuaASM_Hooks_Enabled = false; -- Luau was being funky, so I had to add this in.
+local LuaASM_Hooks_Enabled = false;
 local LuaASM_Functions = {};
 local LuaASM_Repeats = {};
 local LuaASM_LatestVFArguments;
@@ -59,6 +59,7 @@ function LuaASM_Search(ASM)
     return Target or LuaASM_Environment[ASM]
 end;
 local LuaASM_Instructions = {
+    -- ## Call instructions
     ["call"] = {
         ins = function(Variable, ...)
             local Arguments = table.pack(...)
@@ -102,6 +103,7 @@ local LuaASM_Instructions = {
             end)
         end
     },
+    -- ## Set instructions
     ["callset"] = {
         ins = function(ToWriteTo, Variable, ...)
             if LuaASM_Functions[ToWriteTo] then
@@ -185,6 +187,20 @@ local LuaASM_Instructions = {
             end
         end
     },
+    ["settbl"] = {
+        ins = function(Variable, ...)
+            local Arguments = table.pack(...)
+            LuaASM_Environment[Variable] = {}
+            for i = 1, #Arguments do
+                local Value = Arguments[i]
+                table.insert(
+                    LuaASM_Environment[Variable], 
+                    tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
+                )
+            end
+        end
+    },
+    -- ## Logging / print instructions
     ["log"] = {
         ins = function(Value)
             print(LuaASM_Search(Value))
@@ -210,17 +226,14 @@ local LuaASM_Instructions = {
         end,
         concat = true
     },
-    ["settbl"] = {
-        ins = function(Variable, ...)
-            local Arguments = table.pack(...)
-            LuaASM_Environment[Variable] = {}
-            for i = 1, #Arguments do
-                local Value = Arguments[i]
-                table.insert(
-                    LuaASM_Environment[Variable], 
-                    tonumber(LuaASM_Environment[Value] or Value) or LuaASM_Environment[Value] or Value
-                )
+    -- ## Operation instructions
+    ["cat"] = {
+        ins = function(ToWriteTo, ...)
+            local ConcattedString = ""
+            for _, Argument in pairs(table.pack(...)) do
+                ConcattedString = ConcattedString .. (LuaASM_Search(Argument) or Argument)
             end
+            LuaASM_Environment[ToWriteTo] = ConcattedString ~= "" and ConcattedString or nil
         end
     },
     ["opp"] = {
@@ -282,6 +295,7 @@ local LuaASM_Instructions = {
             end
         end
     },
+    -- ## Function instructions
     ["hook"] = {
         ins = function(ToHookTo, Path, AllowInterruptions)
             if typeof(LuaASM_Search(ToHookTo)) == "RBXScriptSignal" then
@@ -324,6 +338,7 @@ local LuaASM_Instructions = {
             end
         end
     },
+    -- ## Other instructions
     ["end"] = {
         ins = function()
             LuaASM_Index = math.huge;
