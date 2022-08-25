@@ -370,7 +370,7 @@ function LuaASM_RunInstruction(ASM_Row)
             ASM_Instruction['ins'](table.unpack(ASM_Arguments));
         end;
     elseif Wrapper_Instruction then
-        local WrappedInstruction = Wrapper_Instruction(ASM_Arguments)
+        local WrappedInstruction = Wrapper_Instruction(ASM_Arguments):split(' ')
         LuaASM_RunInstruction(WrappedInstruction)
     end
 end;
@@ -520,7 +520,7 @@ LuaASM = {
                 if Success then
                     local Success, LoadedPlugin = pcall(function()
                         return loadstring(UnloadedPlugin)()
-                    end)
+                    end
                     if Success then
                         if LoadedPlugin.Wrappers then
                             for TheWrapper, Wrapper in pairs(LoadedPlugin.Wrappers) do
@@ -532,7 +532,7 @@ LuaASM = {
                                     LuaASM_Instructions[Instruction] = ToRun
                                 else
                                     LuaASM_Instructions[Instruction] = {
-                                        ins = ToRun,
+                                        ins = ToRun
                                         cmp = function()
                                             return "warn('Instruction "..Instruction.." cannot compile.\nThe plugin author must fix this issue themselves.')"
                                         end
@@ -555,4 +555,4 @@ LuaASM = {
         end
     end
 }
-return LuaASM
+return LuaASM;
