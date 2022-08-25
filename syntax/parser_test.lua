@@ -45,7 +45,7 @@ function check(d)
                 local x = fb:split(']')
                 if x[1] and #x > 1 then
                     print(x[1])
-                    x[1] = "a"
+                    x[1] = "test"
                     x = table.concat(x, "]")
                     z[i] = x
                 end
