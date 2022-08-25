@@ -7,6 +7,12 @@ the goal: get the output to look like:
 2 set b test
 3
 
+right now it looks like
+
+1 set a 0
+2 set b [sub [test] 2]
+3
+
 (note that the "test" is inside the testing code just to see if i can swap it out with a temp variable)
 (also, it needs to start with the first furthest bracketed instruction)
 (i might need to restart the [] detector)
