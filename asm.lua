@@ -22,7 +22,7 @@ local LuaASM_Wrappers = {};
 local LuaASM_LatestVFArguments;
 function LuaASM_Search(ASM)
     if typeof(ASM) ~= "string" then return ASM end
-    local Token = ASM:split('.')
+    local Token = ASM:gsub('$s', ' '):split('.')
     local Target = getfenv(0)
     local Failed = false
     for _, _Token in pairs(Token) do
