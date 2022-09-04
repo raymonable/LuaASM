@@ -1,0 +1,20 @@
+luact draft:
+  roact for tpscript / luaasm
+
+: creating a new virtual tree (named "test")
+root test;
+
+: adding a new virtual element (of TextLabel named label)
+elem TextLabel label;
+
+: editing the virtual element;
+callset a UDim2.new 1 0 1 0;
+edit label Text test;
+edit label Size a;
+
+: mount the virtual tree (note that "owner" is the local player)
+mnt test TestGui owner.PlayerGui;
+
+
+
+if you want to make any changes, tell me or send in a pr
