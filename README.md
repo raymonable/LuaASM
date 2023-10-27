@@ -1,6 +1,9 @@
 # LuaASM
 
-Fork of TPScript (primarily so I can bug TPose less to fix bugs, and just fix them myself)
+LuaASM is a fork of TPScript, which is an experimental scripting language developed for Roblox (not made for production use, of course).</br>
+Our fork has more instructions than TPScript which can cause compatibility issues so please keep this in mind.
+
+${\textsf{\color{#af0a0a}This project is NOT maintained anymore. Some changes may be pushed out at random, but do not expect any scheduled updates.}}$
 
 ## Documentation
 
